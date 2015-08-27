@@ -86,15 +86,19 @@ public class Handshake {
 		return new Handshake(buffer, ByteBuffer.wrap(infoHash),
 				ByteBuffer.wrap(peerId));
 	}
+	
+	public static Handshake craft(byte[] torrentInfoHash,
+			byte[] clientPeerId){
+		return Handshake.craft(torrentInfoHash, clientPeerId, new byte[8]);
+	}
 
 	public static Handshake craft(byte[] torrentInfoHash,
-			byte[] clientPeerId) {
+			byte[] clientPeerId, byte[] reserved) {
 		try {
 			ByteBuffer buffer = ByteBuffer.allocate(
 					Handshake.BASE_HANDSHAKE_LENGTH +
 					Handshake.BITTORRENT_PROTOCOL_IDENTIFIER.length());
 
-			byte[] reserved = new byte[8];
 			ByteBuffer infoHash = ByteBuffer.wrap(torrentInfoHash);
 			ByteBuffer peerId = ByteBuffer.wrap(clientPeerId);
 

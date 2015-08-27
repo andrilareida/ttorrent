@@ -58,7 +58,8 @@ public abstract class PeerMessage {
 		BITFIELD(5),
 		REQUEST(6),
 		PIECE(7),
-		CANCEL(8);
+		CANCEL(8),
+		EXTENDED(20);
 
 		private byte id;
 		Type(int id) {
@@ -178,6 +179,8 @@ public abstract class PeerMessage {
 				return PieceMessage.parse(buffer.slice(), torrent);
 			case CANCEL:
 				return CancelMessage.parse(buffer.slice(), torrent);
+			case EXTENDED:
+				return ExtendedMessage.parse(buffer.slice(), torrent);
 			default:
 				throw new IllegalStateException("Message type should have " +
 						"been properly defined by now.");
@@ -665,6 +668,61 @@ public abstract class PeerMessage {
 		public String toString() {
 			return super.toString() + " #" + this.getPiece() +
 				" (" + this.getLength() + "@" + this.getOffset() + ")";
+		}
+	}
+	
+	/**
+	 * Extended message.
+	 *
+	 * <len=00013><id=8><piece index><block offset><block length>
+	 */
+	public static class ExtendedMessage extends PeerMessage {
+		private static final int BASE_SIZE = 2;
+		
+		private int extendedID;
+		private ByteBuffer payload;
+		
+		public ExtendedMessage(ByteBuffer data) {			
+			super(Type.EXTENDED, data);
+		}
+		
+		public static ExtendedMessage parse(ByteBuffer buffer,
+				SharedTorrent torrent) throws MessageValidationException {
+			int extendedID = buffer.get();
+			ByteBuffer payload = buffer.slice();
+			return new ExtendedMessage(buffer).setExtendedID(extendedID).setPayload(payload).validate(torrent);
+		}
+		
+		public ExtendedMessage validate(SharedTorrent torrent) {
+			return this;
+		}
+		
+		public static ExtendedMessage craft(int extendedID, byte[] payload){
+			
+			ByteBuffer data = ByteBuffer.allocate(MESSAGE_LENGTH_FIELD_SIZE + BASE_SIZE + payload.length);
+			data.putInt(BASE_SIZE + payload.length);
+			data.put(Type.EXTENDED.id);
+			data.put((byte)(extendedID & 0xFF));
+			data.put(payload);
+			return new ExtendedMessage(data).setExtendedID(extendedID).setPayload(ByteBuffer.wrap(payload));
+		}
+
+		public int getExtendedID() {
+			return extendedID;
+		}
+
+		public ExtendedMessage setExtendedID(int extendedID) {
+			this.extendedID = extendedID;
+			return this;
+		}
+
+		public ByteBuffer getPayload() {
+			return payload;
+		}
+
+		public ExtendedMessage setPayload(ByteBuffer payload) {
+			this.payload = payload;
+			return this;
 		}
 	}
 }
