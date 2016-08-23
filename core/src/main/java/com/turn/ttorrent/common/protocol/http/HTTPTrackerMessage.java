@@ -47,7 +47,7 @@ public abstract class HTTPTrackerMessage extends TrackerMessage {
 
 		if (params.containsKey("info_hash")) {
 			return HTTPAnnounceRequestMessage.parse(data);
-		} else if (params.containsKey("peers")) {
+		} else if (params.containsKey("peers") || params.containsKey("peers6")) {
 			return HTTPAnnounceResponseMessage.parse(data);
 		} else if (params.containsKey("failure reason")) {
 			return HTTPTrackerErrorMessage.parse(data);

@@ -98,11 +98,18 @@ public class HTTPAnnounceResponseMessage extends HTTPTrackerMessage
 			try {
 				// First attempt to decode a compact response, since we asked
 				// for it.
-				peers = toPeerList(params.get("peers").getBytes());
+				// Prefer peers6 if both occur for now...
+				if(params.containsKey("peers6"))
+					peers = toPeerList6(params.get("peers6").getBytes());
+				else
+					peers = toPeerList(params.get("peers").getBytes());
 			} catch (InvalidBEncodingException ibee) {
 				// Fall back to peer list, non-compact response, in case the
 				// tracker did not support compact responses.
-				peers = toPeerList(params.get("peers").getList());
+				if(params.containsKey("peers"))
+					peers = toPeerList(params.get("peers").getList());
+				else
+					peers = toPeerList(params.get("peers6").getList()); //should work with same method as IPv4 //TODO test this?
 			}
 
 			return new HTTPAnnounceResponseMessage(data,
@@ -175,6 +182,40 @@ public class HTTPAnnounceResponseMessage extends HTTPTrackerMessage
 	}
 
 	/**
+	 * Build a peer list as a list of IPv6-{@link Peer}s from the
+	 * announce response's binary compact peer list.
+	 *
+	 * @param data The bytes representing the compact peer list from the
+	 * announce response.
+	 * @return A {@link List} of {@link Peer}s representing the
+	 * peers' addresses. Peer IDs are lost, but they are not crucial.
+	 */
+	private static List<Peer> toPeerList6(byte[] data)
+			throws InvalidBEncodingException, UnknownHostException {
+		//logger.debug("Building IPv6 Peer List from compact response");
+
+		if (data.length % 18 != 0) {
+			throw new InvalidBEncodingException("Invalid peers " +
+					"binary information string!");
+		}
+
+		List<Peer> result = new LinkedList<Peer>();
+		ByteBuffer peers = ByteBuffer.wrap(data);
+
+		for (int i=0; i < data.length / 18; i++) {
+			byte[] ipBytes = new byte[16];
+			peers.get(ipBytes);
+			InetAddress ip = InetAddress.getByAddress(ipBytes);
+			int port =
+					(0xFF & (int)peers.get()) << 8 |
+							(0xFF & (int)peers.get());
+			result.add(new Peer(new InetSocketAddress(ip, port)));
+		}
+
+		return result;
+	}
+
+	/**
 	 * Craft a compact announce response message.
 	 *
 	 * @param interval
@@ -187,6 +228,7 @@ public class HTTPAnnounceResponseMessage extends HTTPTrackerMessage
 	public static HTTPAnnounceResponseMessage craft(int interval,
 		int minInterval, String trackerId, int complete, int incomplete,
 		List<Peer> peers) throws IOException, UnsupportedEncodingException {
+		//TODO update for IPv6? (only used in tracker, not in client)
 		Map<String, BEValue> response = new HashMap<String, BEValue>();
 		response.put("interval", new BEValue(interval));
 		response.put("complete", new BEValue(complete));
