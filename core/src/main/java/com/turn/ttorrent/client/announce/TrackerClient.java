@@ -15,6 +15,7 @@
  */
 package com.turn.ttorrent.client.announce;
 
+import com.turn.ttorrent.client.ITorrent;
 import com.turn.ttorrent.client.SharedTorrent;
 import com.turn.ttorrent.common.Peer;
 import com.turn.ttorrent.common.protocol.TrackerMessage;
@@ -31,11 +32,11 @@ public abstract class TrackerClient {
 	/** The set of listeners to announce request answers. */
 	private final Set<AnnounceResponseListener> listeners;
 
-	protected final SharedTorrent torrent;
+	protected final ITorrent torrent;
 	protected final Peer peer;
 	protected final URI tracker;
 
-	public TrackerClient(SharedTorrent torrent, Peer peer, URI tracker) {
+	public TrackerClient(ITorrent torrent, Peer peer, URI tracker) {
 		this.listeners = new HashSet<AnnounceResponseListener>();
 		this.torrent = torrent;
 		this.peer = peer;

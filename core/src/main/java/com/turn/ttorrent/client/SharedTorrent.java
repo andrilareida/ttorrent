@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author mpetazzoni
  */
-public class SharedTorrent extends Torrent implements PeerActivityListener {
+public class SharedTorrent extends Torrent implements ITorrent, PeerActivityListener {
 
 	private static final Logger logger =
 		LoggerFactory.getLogger(SharedTorrent.class);

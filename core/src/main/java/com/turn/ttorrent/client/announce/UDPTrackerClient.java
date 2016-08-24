@@ -15,6 +15,7 @@
  */
 package com.turn.ttorrent.client.announce;
 
+import com.turn.ttorrent.client.ITorrent;
 import com.turn.ttorrent.client.SharedTorrent;
 import com.turn.ttorrent.common.Peer;
 import com.turn.ttorrent.common.protocol.TrackerMessage;
@@ -112,7 +113,7 @@ public class UDPTrackerClient extends TrackerClient {
 	 * 
 	 * @param torrent
 	 */
-	protected UDPTrackerClient(SharedTorrent torrent, Peer peer, URI tracker)
+	protected UDPTrackerClient(ITorrent torrent, Peer peer, URI tracker)
 		throws UnknownHostException {
 		super(torrent, peer, tracker);
 

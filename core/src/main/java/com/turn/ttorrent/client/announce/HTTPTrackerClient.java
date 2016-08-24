@@ -15,6 +15,7 @@
  */
 package com.turn.ttorrent.client.announce;
 
+import com.turn.ttorrent.client.ITorrent;
 import com.turn.ttorrent.client.SharedTorrent;
 import com.turn.ttorrent.common.Peer;
 import com.turn.ttorrent.common.protocol.TrackerMessage.*;
@@ -51,8 +52,8 @@ public class HTTPTrackerClient extends TrackerClient {
 	 * @param torrent The torrent we're announcing about.
 	 * @param peer Our own peer specification.
 	 */
-	protected HTTPTrackerClient(SharedTorrent torrent, Peer peer,
-		URI tracker) {
+	protected HTTPTrackerClient(ITorrent torrent, Peer peer,
+								URI tracker) {
 		super(torrent, peer, tracker);
 	}
 
