@@ -23,15 +23,7 @@ import com.turn.ttorrent.common.protocol.TrackerMessage.*;
 import com.turn.ttorrent.common.protocol.udp.*;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-import java.net.URI;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.UnsupportedAddressTypeException;
 import java.util.Calendar;
@@ -92,8 +84,11 @@ public class UDPTrackerClient extends TrackerClient {
 	 * The biggest packet in the exchange is the announce response, which in 20
 	 * bytes + 6 bytes per peer. Common numWant is 50, so 20 + 6 * 50 = 320.
 	 * With headroom, we'll ask for 512 bytes.
+	 *
+	 * Addendum Simon: For IPv6: 20 + 18 * 50 = 920 + Headroom for 40 more addresses(720bytes) = 1640
 	 */
 	private static final int UDP_PACKET_LENGTH = 512;
+	private static final int UDP_PACKET_LENGTH_V6 = 1640;
 
 	private final InetSocketAddress address;
 	private final Random random;
@@ -103,6 +98,7 @@ public class UDPTrackerClient extends TrackerClient {
 	private long connectionId;
 	private int transactionId;
 	private boolean stop;
+	private boolean useIPv6 = false;
 
 	private enum State {
 		CONNECT_REQUEST,
@@ -120,10 +116,17 @@ public class UDPTrackerClient extends TrackerClient {
 		/**
 		 * The UDP announce request protocol only supports IPv4
 		 *
+		 * Not anymore! Support is hacked in and should work at least on trackers using OpenTracker.
+		 * Trackers use the same action ID for announce requests/response for IPv6 as for IPv4.
+		 * Whether the response stores IPv4 or IPv6 peers gets detected from the packet source address...
+		 *
 		 * @see http://bittorrent.org/beps/bep_0015.html#ipv6
 		 */
-		if (! (InetAddress.getByName(peer.getIp()) instanceof Inet4Address)) {
-			throw new UnsupportedAddressTypeException();
+		if(tracker.getHost().contains(":")) {
+			logger.trace("Using IPv6 for tracker " + this.tracker);
+			useIPv6 = true;
+		} else {
+			logger.trace("Using IPv4 for tracker " + this.tracker);
 		}
 
 		this.address = new InetSocketAddress(
@@ -182,7 +185,7 @@ public class UDPTrackerClient extends TrackerClient {
 						try {
 							this.handleTrackerConnectResponse(
 								UDPTrackerMessage.UDPTrackerResponseMessage
-									.parse(this.recv(attempts)));
+									.parse(this.recv(attempts), useIPv6));
 							attempts = -1;
 						} catch (SocketTimeoutException ste) {
 							// Silently ignore the timeout and retry with a
@@ -201,7 +204,7 @@ public class UDPTrackerClient extends TrackerClient {
 						try {
 							this.handleTrackerAnnounceResponse(
 								UDPTrackerMessage.UDPTrackerResponseMessage
-									.parse(this.recv(attempts)), inhibitEvents);
+									.parse(this.recv(attempts), useIPv6), inhibitEvents);
 							// If we got here, we succesfully completed this
 							// announce exchange and can simply return to exit the
 							// loop.
@@ -349,7 +352,8 @@ public class UDPTrackerClient extends TrackerClient {
 	}
 
 	/**
-	 * Receive a UDP packet from the tracker.
+	 * Receive a UDP packet from the tracker. Checks if Packet comes from IPv4
+	 * or IPv6 source.
 	 *
 	 * @param attempt The attempt number, used to calculate the timeout for the
 	 * receive operation.
@@ -363,10 +367,21 @@ public class UDPTrackerClient extends TrackerClient {
 		this.socket.setSoTimeout(timeout * 1000);
 
 		try {
-			DatagramPacket p = new DatagramPacket(
-				new byte[UDP_PACKET_LENGTH],
-				UDP_PACKET_LENGTH);
+			DatagramPacket p;
+			if(useIPv6) {
+				p = new DatagramPacket(new byte[UDP_PACKET_LENGTH_V6], UDP_PACKET_LENGTH_V6);
+			} else {
+				p = new DatagramPacket(new byte[UDP_PACKET_LENGTH],	UDP_PACKET_LENGTH);
+			}
 			this.socket.receive(p);
+			/** Double proof connection protocol **/
+			if(p.getAddress() instanceof Inet6Address) {
+				logger.trace("Detected IPv6 Response");
+				useIPv6 = true;
+			} else {
+				logger.trace("Detected IPv4 Response");
+				useIPv6 = false;
+			}
 			return ByteBuffer.wrap(p.getData(), 0, p.getLength());
 		} catch (SocketTimeoutException ste) {
 			throw ste;

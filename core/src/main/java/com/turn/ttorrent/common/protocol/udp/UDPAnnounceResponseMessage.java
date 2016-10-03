@@ -83,10 +83,11 @@ public class UDPAnnounceResponseMessage
 		return this.peers;
 	}
 
-	public static UDPAnnounceResponseMessage parse(ByteBuffer data)
+	public static UDPAnnounceResponseMessage parse(ByteBuffer data, boolean useIPv6)
 		throws MessageValidationException {
 		if (data.remaining() < UDP_ANNOUNCE_RESPONSE_MIN_MESSAGE_SIZE ||
-			(data.remaining() - UDP_ANNOUNCE_RESPONSE_MIN_MESSAGE_SIZE) % 6 != 0) {
+				(((data.remaining() - UDP_ANNOUNCE_RESPONSE_MIN_MESSAGE_SIZE) % 6 != 0) & !useIPv6) ||
+				(((data.remaining() - UDP_ANNOUNCE_RESPONSE_MIN_MESSAGE_SIZE) % 18 != 0) & useIPv6)) {
 			throw new MessageValidationException(
 				"Invalid announce response message size!");
 		}
@@ -102,22 +103,40 @@ public class UDPAnnounceResponseMessage
 		int complete = data.getInt();
 
 		List<Peer> peers = new LinkedList<Peer>();
-		// the line below replaces this: for (int i=0; i < data.remaining() / 6; i++)
-		// That for loop fails when data.remaining() is 6, even if data.remaining() / 6 is
-		// placed in parentheses.  The reason why it fails is not clear.  Replacing it
-		// with while (data.remaining() > 5) works however.
-		while(data.remaining() > 5) {
-			try {
-				byte[] ipBytes = new byte[4];
-				data.get(ipBytes);
-				InetAddress ip = InetAddress.getByAddress(ipBytes);
-				int port =
-					(0xFF & (int)data.get()) << 8 |
-					(0xFF & (int)data.get());
-				peers.add(new Peer(new InetSocketAddress(ip, port)));
-			} catch (UnknownHostException uhe) {
-				throw new MessageValidationException(
-					"Invalid IP address in announce request!");
+
+		if(useIPv6) {
+			while (data.remaining() > 17) {
+				try {
+					byte[] ipBytes = new byte[16];
+					data.get(ipBytes);
+					InetAddress ip = InetAddress.getByAddress(ipBytes);
+					int port =
+							(0xFF & (int) data.get()) << 8 |
+									(0xFF & (int) data.get());
+					peers.add(new Peer(new InetSocketAddress(ip, port)));
+				} catch (UnknownHostException uhe) {
+					throw new MessageValidationException(
+							"Invalid IP address in announce request!");
+				}
+			}
+		} else {
+			// the line below replaces this: for (int i=0; i < data.remaining() / 6; i++)
+			// That for loop fails when data.remaining() is 6, even if data.remaining() / 6 is
+			// placed in parentheses.  The reason why it fails is not clear.  Replacing it
+			// with while (data.remaining() > 5) works however.
+			while (data.remaining() > 5) {
+				try {
+					byte[] ipBytes = new byte[4];
+					data.get(ipBytes);
+					InetAddress ip = InetAddress.getByAddress(ipBytes);
+					int port =
+							(0xFF & (int) data.get()) << 8 |
+									(0xFF & (int) data.get());
+					peers.add(new Peer(new InetSocketAddress(ip, port)));
+				} catch (UnknownHostException uhe) {
+					throw new MessageValidationException(
+							"Invalid IP address in announce request!");
+				}
 			}
 		}
 

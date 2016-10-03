@@ -18,6 +18,7 @@ package com.turn.ttorrent.common.protocol.udp;
 import com.turn.ttorrent.common.Torrent;
 import com.turn.ttorrent.common.protocol.TrackerMessage;
 
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
@@ -34,6 +35,7 @@ public class UDPAnnounceRequestMessage
 	implements TrackerMessage.AnnounceRequestMessage {
 
 	private static final int UDP_ANNOUNCE_REQUEST_MESSAGE_SIZE = 98;
+	private static final int UDP_ANNOUNCE_REQUEST_MESSAGE_SIZE_V6 = 110;
 
 	private final long connectionId;
 	private final int actionId = Type.ANNOUNCE_REQUEST.getId();
@@ -213,16 +215,21 @@ public class UDPAnnounceRequestMessage
 		int transactionId, byte[] infoHash, byte[] peerId, long downloaded,
 		long uploaded, long left, RequestEvent event, InetAddress ip,
 		int key, int numWant, int port) {
+		boolean useIPv6 = false;
 		if (infoHash.length != 20 || peerId.length != 20) {
 			throw new IllegalArgumentException();
 		}
 
-		if (! (ip instanceof Inet4Address)) {
-			throw new IllegalArgumentException("Only IPv4 addresses are " +
-				"supported by the UDP tracer protocol!");
+		if (ip instanceof Inet6Address) {
+			useIPv6 = true;
 		}
 
-		ByteBuffer data = ByteBuffer.allocate(UDP_ANNOUNCE_REQUEST_MESSAGE_SIZE);
+		ByteBuffer data;
+		if(useIPv6) {
+			data = ByteBuffer.allocate(UDP_ANNOUNCE_REQUEST_MESSAGE_SIZE_V6);
+		} else {
+			data = ByteBuffer.allocate(UDP_ANNOUNCE_REQUEST_MESSAGE_SIZE);
+		}
 		data.putLong(connectionId);
 		data.putInt(Type.ANNOUNCE_REQUEST.getId());
 		data.putInt(transactionId);

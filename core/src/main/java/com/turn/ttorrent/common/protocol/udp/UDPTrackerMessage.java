@@ -78,7 +78,7 @@ public abstract class UDPTrackerMessage extends TrackerMessage {
 			super(type, data);
 		}
 
-		public static UDPTrackerResponseMessage parse(ByteBuffer data)
+		public static UDPTrackerResponseMessage parse(ByteBuffer data, boolean useIPv6)
 			throws MessageValidationException {
 			if (data.remaining() < UDP_MIN_RESPONSE_PACKET_SIZE) {
 				throw new MessageValidationException("Invalid packet size!");
@@ -95,7 +95,7 @@ public abstract class UDPTrackerMessage extends TrackerMessage {
 			if (action == Type.CONNECT_RESPONSE.getId()) {
 				return UDPConnectResponseMessage.parse(data);
 			} else if (action == Type.ANNOUNCE_RESPONSE.getId()) {
-				return UDPAnnounceResponseMessage.parse(data);
+				return UDPAnnounceResponseMessage.parse(data, useIPv6);
 			} else if (action == Type.ERROR.getId()) {
 				return UDPTrackerErrorMessage.parse(data);
 			}

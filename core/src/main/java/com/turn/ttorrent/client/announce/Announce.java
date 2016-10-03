@@ -19,9 +19,7 @@ import com.turn.ttorrent.client.SharedTorrent;
 import com.turn.ttorrent.common.Peer;
 import com.turn.ttorrent.common.protocol.TrackerMessage.*;
 
-import java.net.URI;
-import java.net.UnknownHostException;
-import java.net.UnknownServiceException;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -89,11 +87,25 @@ public class Announce implements Runnable {
 			ArrayList<TrackerClient> tierClients = new ArrayList<TrackerClient>();
 			for (URI tracker : tier) {
 				try {
-					TrackerClient client = this.createTrackerClient(torrent,
-						peer, tracker);
 
-					tierClients.add(client);
-					this.allClients.add(client);
+					ArrayList<URI> resolvedTrackers = new ArrayList<URI>();
+					try {
+						//resolve addresses to find if there are IPv6 enabled trackers
+						resolvedTrackers = resolveHosts(tracker);
+					} catch(Exception e) {
+						logger.warn("Could not resolve Hosts for tracker " + tracker.getHost() +
+							". Creating only single client.");
+						resolvedTrackers.add(tracker);
+					}
+
+					for(URI uri : resolvedTrackers) {
+						TrackerClient client = this.createTrackerClient(torrent,
+								peer, uri);
+
+						tierClients.add(client);
+						this.allClients.add(client);
+					}
+
 				} catch (Exception e) {
 					logger.warn("Will not announce on {}: {}!",
 						tracker,
@@ -117,6 +129,28 @@ public class Announce implements Runnable {
 
 		logger.info("Initialized announce sub-system with {} trackers on {}.",
 			new Object[] { torrent.getTrackerCount(), torrent });
+	}
+
+	/**
+	 * Resolve the tracker address and add all found addresses as seperate trackers.
+	 * This ensures that there is a IPv4 and IPv6 connection to dual stack trackers.
+	 * @param tracker original tracker URI
+	 * @return ArrayList containing all found hosts as URIs
+	 * @throws UnknownHostException
+	 * @throws URISyntaxException
+	 */
+	private ArrayList<URI> resolveHosts(URI tracker) throws UnknownHostException, URISyntaxException {
+		ArrayList<URI> resolvedTrackers = new ArrayList<URI>();
+
+		InetAddress[] addresses = InetAddress.getAllByName(tracker.getHost());
+
+		for(InetAddress add : addresses) {
+			logger.debug("Added " + add.getHostAddress() + " to resolved trackers");
+			resolvedTrackers.add(new URI(tracker.getScheme(), tracker.getUserInfo(),
+					add.getHostAddress(), tracker.getPort(), tracker.getPath(), tracker.getQuery(), tracker.getFragment()));
+		}
+
+		return resolvedTrackers;
 	}
 
 	/**
